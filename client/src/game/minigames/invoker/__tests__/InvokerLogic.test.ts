@@ -5,6 +5,7 @@ import {
   handleInvokerInput,
   updateInvokerState,
 } from "../InvokerLogic";
+import { type PieceColor } from "../InvokerTypes";
 
 const testConfig = {
   ...defaultInvokerConfig,
@@ -19,14 +20,14 @@ describe("InvokerLogic", () => {
       id: "p1",
       trackId: 0,
       quadrant: "upperLeft" as const,
-      color: "red" as const,
+      color: "blue" as const,
       spawnTime: 0,
       currentY: testConfig.collectionLineY,
       speed: 0,
     };
     state = { ...state, pieces: [piece] };
     const updated = handleInvokerInput(state, "KeyA", testConfig);
-    expect(updated.circleProgress.red.quadrants.upperLeft).toBe(true);
+    expect(updated.circleProgress[0].quadrants.upperLeft).toBe(true);
     expect(updated.pieces.length).toBe(0);
   });
 
@@ -35,15 +36,15 @@ describe("InvokerLogic", () => {
     state = { ...state, paused: false };
     const baseDifficulty = state.difficulty.value;
     const pieces = [
-      "upperLeft",
-      "upperRight",
-      "lowerLeft",
-      "lowerRight",
-    ].map((quadrant, idx) => ({
+      { quadrant: "upperLeft", color: "blue" },
+      { quadrant: "upperRight", color: "red" },
+      { quadrant: "lowerLeft", color: "green" },
+      { quadrant: "lowerRight", color: "yellow" },
+    ].map((piece, idx) => ({
       id: `p${idx}`,
       trackId: 0 as const,
-      quadrant: quadrant as typeof state.circleProgress.red.quadrants extends Record<infer Q, boolean> ? Q : never,
-      color: "red" as const,
+      quadrant: piece.quadrant,
+      color: piece.color as PieceColor,
       spawnTime: 0,
       currentY: testConfig.collectionLineY,
       speed: 0,
@@ -60,21 +61,21 @@ describe("InvokerLogic", () => {
   it("drops difficulty on over-collection", () => {
     let state = createInitialInvokerState(testConfig);
     state = { ...state, paused: false };
-    const filled = {
-      ...state.circleProgress.red,
+    const filledCircles = state.circleProgress.map((circle) => ({
+      ...circle,
       quadrants: {
         upperLeft: true,
         upperRight: true,
         lowerLeft: true,
         lowerRight: true,
       },
-    };
-    state = { ...state, circleProgress: { ...state.circleProgress, red: filled } };
+    }));
+    state = { ...state, circleProgress: filledCircles };
     const piece = {
       id: "p1",
       trackId: 0,
       quadrant: "upperLeft" as const,
-      color: "red" as const,
+      color: "blue" as const,
       spawnTime: 0,
       currentY: testConfig.collectionLineY,
       speed: 0,
