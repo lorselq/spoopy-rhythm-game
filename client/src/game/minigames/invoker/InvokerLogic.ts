@@ -56,9 +56,7 @@ const withResetEvents = (state: InvokerState): InvokerState => ({
   },
 });
 
-export const createInitialInvokerState = (
-  config: InvokerConfig = defaultInvokerConfig
-): InvokerState => {
+export const createInitialInvokerState = (): InvokerState => {
   const circleProgress = Array.from({ length: 3 }, () => createCircleProgress());
 
   return {

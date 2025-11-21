@@ -43,7 +43,7 @@ export class InvokerScene extends Phaser.Scene {
   init(data: { config?: InvokerConfig; callbacks?: InvokerSceneCallbacks }) {
     this.config = data.config ?? defaultInvokerConfig;
     this.callbacks = data.callbacks ?? {};
-    this.state = createInitialInvokerState(this.config);
+    this.state = createInitialInvokerState();
   }
 
   create() {
@@ -55,13 +55,13 @@ export class InvokerScene extends Phaser.Scene {
       this.config.collectionLineY + 140
     );
     if (this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
-      if (!this.game.renderer.getPipeline("distortion")) {
-        this.game.renderer.addPipeline(
-          "distortion",
-          new DistortionPipeline(this.game)
-        );
+      const pipelines = this.game.renderer.pipelines;
+
+      if (!pipelines.has("distortion")) {
+        pipelines.add("distortion", new DistortionPipeline(this.game));
       }
-      this.distortionPipeline = this.game.renderer.getPipeline(
+
+      this.distortionPipeline = pipelines.get(
         "distortion"
       ) as DistortionPipeline;
       this.distortionPipeline.intensity = 0;

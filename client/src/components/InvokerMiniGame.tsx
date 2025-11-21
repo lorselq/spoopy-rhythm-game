@@ -4,7 +4,7 @@ import { defaultInvokerConfig } from "../game/minigames/invoker/InvokerConfig";
 
 export const InvokerMiniGame = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const controllerRef = useRef<InvokerController>();
+  const controllerRef = useRef<InvokerController | null>(null);
   const [score, setScore] = useState(0);
   const [difficulty, setDifficulty] = useState(0);
   const [ended, setEnded] = useState(false);

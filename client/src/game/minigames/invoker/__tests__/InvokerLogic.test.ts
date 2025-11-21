@@ -14,7 +14,7 @@ const testConfig = {
 
 describe("InvokerLogic", () => {
   it("fills quadrants on hit", () => {
-    let state = createInitialInvokerState(testConfig);
+    let state = createInitialInvokerState();
     state = { ...state, paused: false };
     const piece = {
       id: "p1",
@@ -32,15 +32,17 @@ describe("InvokerLogic", () => {
   });
 
   it("completing circle increases difficulty and score", () => {
-    let state = createInitialInvokerState(testConfig);
+    let state = createInitialInvokerState();
     state = { ...state, paused: false };
     const baseDifficulty = state.difficulty.value;
-    const pieces = [
-      { quadrant: "upperLeft", color: "blue" },
-      { quadrant: "upperRight", color: "red" },
-      { quadrant: "lowerLeft", color: "green" },
-      { quadrant: "lowerRight", color: "yellow" },
-    ].map((piece, idx) => ({
+    const pieces = (
+      [
+        { quadrant: "upperLeft", color: "blue" },
+        { quadrant: "upperRight", color: "red" },
+        { quadrant: "lowerLeft", color: "green" },
+        { quadrant: "lowerRight", color: "yellow" },
+      ] as const
+    ).map((piece, idx) => ({
       id: `p${idx}`,
       trackId: 0 as const,
       quadrant: piece.quadrant,
@@ -59,7 +61,7 @@ describe("InvokerLogic", () => {
   });
 
   it("drops difficulty on over-collection", () => {
-    let state = createInitialInvokerState(testConfig);
+    let state = createInitialInvokerState();
     state = { ...state, paused: false };
     const filledCircles = state.circleProgress.map((circle) => ({
       ...circle,
@@ -87,7 +89,7 @@ describe("InvokerLogic", () => {
   });
 
   it("applies drift over time", () => {
-    let state = createInitialInvokerState(testConfig);
+    let state = createInitialInvokerState();
     state = { ...state, paused: false, difficulty: { ...state.difficulty, value: 0.6 } };
     const updated = updateInvokerState(state, 1000, undefined, testConfig);
     expect(updated.difficulty.value).toBeLessThan(0.6);

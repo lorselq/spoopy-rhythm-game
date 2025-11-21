@@ -3,13 +3,7 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import { Invoker } from './game/minigames/invoker/Invoker'
-import { initStrudel } from "@strudel/web";
 import { ensureStrudelInitialized } from "./game/audio/StrudelEngine";
-import * as Tone from "tone";
-import Phaser from "phaser";
-import { io } from "socket.io-client";
-import { create } from "zustand";
-import * as THREE from "three";
 
 
 function App() {
