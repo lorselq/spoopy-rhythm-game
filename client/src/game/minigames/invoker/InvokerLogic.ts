@@ -1,7 +1,6 @@
 import {
   type CircleProgress,
   type Difficulty,
-//  type InvokerEvents,
   type InvokerPiece,
   type InvokerState,
   type PieceColor,
@@ -22,8 +21,20 @@ const createQuadrantRecord = (): Record<Quadrant, boolean> => ({
   lowerRight: false,
 });
 
-const createCircleProgress = (color: PieceColor): CircleProgress => ({
-  color,
+const quadrantColorMap: Record<Quadrant, PieceColor> = {
+  upperLeft: "blue",
+  upperRight: "red",
+  lowerLeft: "green",
+  lowerRight: "yellow",
+};
+
+const nextCircleId = (() => {
+  let counter = 0;
+  return () => ++counter;
+})();
+
+const createCircleProgress = (): CircleProgress => ({
+  id: nextCircleId(),
   quadrants: createQuadrantRecord(),
 });
 
@@ -37,15 +48,18 @@ const nextPieceId = (() => {
 
 const withResetEvents = (state: InvokerState): InvokerState => ({
   ...state,
-  events: { completedColors: [], blueGlitch: false, overCollection: false },
+  events: {
+    completedCircleIds: [],
+    captured: undefined,
+    blueGlitch: false,
+    overCollection: false,
+  },
 });
 
 export const createInitialInvokerState = (
   config: InvokerConfig = defaultInvokerConfig
 ): InvokerState => {
-  const circleProgress: Record<PieceColor, CircleProgress> = Object.fromEntries(
-    config.availableColors.map((color) => [color, createCircleProgress(color)])
-  ) as Record<PieceColor, CircleProgress>;
+  const circleProgress = Array.from({ length: 3 }, () => createCircleProgress());
 
   return {
     time: 0,
@@ -54,7 +68,12 @@ export const createInitialInvokerState = (
     circleProgress,
     score: 0,
     paused: true,
-    events: { completedColors: [], blueGlitch: false, overCollection: false },
+    events: {
+      completedCircleIds: [],
+      captured: undefined,
+      blueGlitch: false,
+      overCollection: false,
+    },
   };
 };
 
@@ -120,10 +139,7 @@ const spawnPiece = (
       config.availableQuadrants[
         Math.floor(Math.random() * config.availableQuadrants.length)
       ];
-    const color =
-      config.availableColors[
-        Math.floor(Math.random() * config.availableColors.length)
-      ];
+    const color = quadrantColorMap[quadrant];
 
     const speed = fallSpeedForDifficulty(state.difficulty.value, config);
     pieces.push({
@@ -166,53 +182,59 @@ const markQuadrant = (progress: CircleProgress, quadrant: Quadrant) => ({
 const isCircleComplete = (progress: CircleProgress) =>
   Object.values(progress.quadrants).every(Boolean);
 
-const resetCircle = (progress: CircleProgress) =>
-  ({ ...progress, quadrants: createQuadrantRecord() });
-
 const collectPiece = (
   state: InvokerState,
   piece: InvokerPiece,
   config: InvokerConfig
 ): InvokerState => {
-  const circle = state.circleProgress[piece.color];
-  const filledCount = Object.values(circle.quadrants).filter(Boolean).length;
+  const targetIndex = state.circleProgress.findIndex(
+    (circle) => !circle.quadrants[piece.quadrant]
+  );
 
-  // Over-collection: player already has a ready circle waiting.
-  if (filledCount >= 4) {
+  // Over-collection: no open quadrants remain for this piece.
+  if (targetIndex === -1) {
     const difficulty = applyDifficultyDrop(state.difficulty.value, config);
+    const blueGlitch = state.events.blueGlitch || piece.color === "blue";
     return {
       ...state,
       difficulty: { ...state.difficulty, value: difficulty },
-      events: { ...state.events, overCollection: true },
+      events: { ...state.events, overCollection: true, blueGlitch },
     };
   }
 
-  const updatedCircle = markQuadrant(circle, piece.quadrant);
+  const updatedCircle = markQuadrant(
+    state.circleProgress[targetIndex],
+    piece.quadrant
+  );
+  const circleProgress = [...state.circleProgress];
+  circleProgress[targetIndex] = updatedCircle;
+
   let difficultyValue = state.difficulty.value;
   let score = state.score;
-  const completedColors = [...state.events.completedColors];
+  const completedCircleIds = [...state.events.completedCircleIds];
   let blueGlitch = state.events.blueGlitch;
 
   if (isCircleComplete(updatedCircle)) {
     score += 10;
-    completedColors.push(piece.color);
     difficultyValue = applyDifficultyIncrease(difficultyValue, config);
-    blueGlitch = blueGlitch || piece.color === "blue";
+    completedCircleIds.push(updatedCircle.id);
+    circleProgress.splice(targetIndex, 1);
+    circleProgress.push(createCircleProgress());
   }
 
   return {
     ...state,
     difficulty: { ...state.difficulty, value: difficultyValue },
-    circleProgress: {
-      ...state.circleProgress,
-      [piece.color]: isCircleComplete(updatedCircle)
-        ? resetCircle(updatedCircle)
-        : updatedCircle,
-    },
+    circleProgress,
     score,
     events: {
       ...state.events,
-      completedColors,
+      completedCircleIds,
+      captured: {
+        circleId: updatedCircle.id,
+        quadrant: piece.quadrant,
+        color: piece.color,
+      },
       blueGlitch,
     },
   };

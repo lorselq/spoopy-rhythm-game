@@ -20,7 +20,7 @@ export interface InvokerPiece {
 }
 
 export interface CircleProgress {
-  color: PieceColor;
+  id: number;
   quadrants: Record<Quadrant, boolean>;
 }
 
@@ -31,7 +31,8 @@ export interface DifficultyState {
 }
 
 export interface InvokerEvents {
-  completedColors: PieceColor[];
+  completedCircleIds: number[];
+  captured?: { circleId: number; quadrant: Quadrant; color: PieceColor };
   blueGlitch: boolean;
   overCollection: boolean;
 }
@@ -40,7 +41,7 @@ export interface InvokerState {
   time: number;
   pieces: InvokerPiece[];
   difficulty: DifficultyState;
-  circleProgress: Record<PieceColor, CircleProgress>;
+  circleProgress: CircleProgress[];
   score: number;
   paused: boolean;
   events: InvokerEvents;

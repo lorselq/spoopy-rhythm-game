@@ -33,7 +33,7 @@ export const defaultInvokerConfig: InvokerConfig = {
   keybindings: ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG"],
   screenHeight: 720,
   collectionLineY: 640,
-  hitWindow: 28,
+  hitWindow: 40,
   difficulty: {
     min: 0,
     max: 1,
