@@ -185,12 +185,18 @@ const collectPiece = (
   piece: InvokerPiece,
   config: InvokerConfig
 ): InvokerState => {
+  const colorCounts = getColorCounts(state.circleProgress);
+
+  // "Too many of this color" – e.g. already 3 pieces of this color stored.
+  const maxPerColor = 3; // tweakable
+  const alreadyTooManyOfColor = colorCounts[piece.color] >= maxPerColor;
+
   const targetIndex = state.circleProgress.findIndex(
     (circle) => !circle.quadrants[piece.quadrant]
   );
 
   // Over-collection: no open quadrants remain for this piece.
-  if (targetIndex === -1) {
+  if (targetIndex === -1 || alreadyTooManyOfColor) {
     const difficulty = applyDifficultyDrop(state.difficulty.value, config);
     const blueGlitch = state.events.blueGlitch || piece.color === "blue";
     return {
@@ -210,7 +216,7 @@ const collectPiece = (
   let difficultyValue = state.difficulty.value;
   let score = state.score;
   const completedCircleIds = [...state.events.completedCircleIds];
-  let blueGlitch = state.events.blueGlitch;
+  const blueGlitch = state.events.blueGlitch;
 
   if (isCircleComplete(updatedCircle)) {
     score += 10;
@@ -267,6 +273,26 @@ export const handleInvokerInput = (
   const updatedState: InvokerState = { ...state, pieces: updatedPieces };
   return collectPiece(updatedState, hitCandidate, config);
 };
+
+const getColorCounts = (circleProgress: CircleProgress[]): Record<PieceColor, number> => {
+  const counts: Record<PieceColor, number> = {
+    red: 0,
+    green: 0,
+    yellow: 0,
+    blue: 0,
+  };
+
+  for (const circle of circleProgress) {
+    for (const [quadrant, filled] of Object.entries(circle.quadrants) as [Quadrant, boolean][]) {
+      if (!filled) continue;
+      const color = quadrantColorMap[quadrant];
+      counts[color]++;
+    }
+  }
+
+  return counts;
+};
+
 
 export const updateInvokerState = (
   inputState: InvokerState,
