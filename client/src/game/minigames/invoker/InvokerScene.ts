@@ -11,6 +11,7 @@ import {
   handleInvokerInput,
   updateInvokerState,
 } from "./InvokerLogic";
+import { DistortionPipeline } from "./DistortionPipeline";
 
 export interface InvokerSceneCallbacks {
   onGameEnd?: () => void;
@@ -30,7 +31,10 @@ export class InvokerScene extends Phaser.Scene {
   private circleBaseX = 80;
   private circleSpacing = 90;
   private circleY = 80;
-  private glitchOverlay?: Phaser.GameObjects.Graphics;
+  private distortionPipeline?: DistortionPipeline;
+  private glitchTween?: Phaser.Tweens.Tween;
+  private staticNoise?: Phaser.GameObjects.Graphics;
+  private staticNoiseTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super("InvokerScene");
@@ -44,6 +48,26 @@ export class InvokerScene extends Phaser.Scene {
 
   create() {
     this.trackWidth = this.scale.width / this.config.tracks;
+    this.circleSpacing = 110;
+    this.circleBaseX = this.scale.width / 2 - this.circleSpacing;
+    this.circleY = Math.min(
+      this.config.screenHeight - 70,
+      this.config.collectionLineY + 140
+    );
+    if (this.game.renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
+      if (!this.game.renderer.getPipeline("distortion")) {
+        this.game.renderer.addPipeline(
+          "distortion",
+          new DistortionPipeline(this.game)
+        );
+      }
+      this.distortionPipeline = this.game.renderer.getPipeline(
+        "distortion"
+      ) as DistortionPipeline;
+      this.distortionPipeline.intensity = 0;
+      this.cameras.main.setPostPipeline("distortion");
+    }
+
     this.drawTracks();
     this.createDifficultyMeter();
     this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
@@ -84,12 +108,15 @@ export class InvokerScene extends Phaser.Scene {
   }
 
   private createDifficultyMeter() {
-    const bg = this.add.rectangle(20, this.config.screenHeight - 20, 200, 12, 0x222222);
-    bg.setOrigin(0, 0.5);
-    const fill = this.add.rectangle(20, this.config.screenHeight - 20, 0, 12, 0x5fb2ff);
-    fill.setOrigin(0, 0.5);
+    const meterWidth = 220;
+    const x = this.scale.width - 20;
+    const y = 30;
+    const bg = this.add.rectangle(x, y, meterWidth, 12, 0x222222);
+    bg.setOrigin(1, 0.5);
+    const fill = this.add.rectangle(x, y, 0, 12, 0x5fb2ff);
+    fill.setOrigin(1, 0.5);
     this.events.on("updateDifficulty", (value: number) => {
-      fill.width = 200 * value;
+      fill.width = meterWidth * value;
       fill.fillColor = Phaser.Display.Color.GetColor(
         95 + Math.floor(60 * value),
         178,
@@ -283,23 +310,65 @@ export class InvokerScene extends Phaser.Scene {
     });
   }
 
-  private triggerGlitch() {
-    if (this.glitchOverlay) {
-      this.glitchOverlay.destroy();
+  private ensureStaticNoiseLayer() {
+    if (this.staticNoise) return;
+    this.staticNoise = this.add.graphics({ x: 0, y: 0 });
+    this.staticNoise.setScrollFactor(0);
+    this.staticNoise.setDepth(1000);
+    this.staticNoise.setVisible(false);
+  }
+
+  private redrawStaticNoise() {
+    if (!this.staticNoise) return;
+    this.staticNoise.clear();
+    for (let i = 0; i < 120; i++) {
+      const width = 4 + Math.random() * 14;
+      const height = 1 + Math.random() * 10;
+      const x = Math.random() * this.scale.width;
+      const y = Math.random() * this.scale.height;
+      const alpha = 0.15 + Math.random() * 0.45;
+      this.staticNoise.fillStyle(0xffffff, alpha);
+      this.staticNoise.fillRect(x, y, width, height);
     }
-    this.glitchOverlay = this.add.graphics();
-    this.glitchOverlay.fillStyle(0xffffff, 0.12);
-    this.glitchOverlay.fillRect(0, 0, this.scale.width, this.scale.height);
-    this.glitchOverlay.setBlendMode(Phaser.BlendModes.ADD);
-    this.tweens.add({
-      targets: this.glitchOverlay,
-      alpha: 0,
-      duration: 200,
-      onComplete: () => this.glitchOverlay?.destroy(),
+    this.staticNoise.setBlendMode(Phaser.BlendModes.SCREEN);
+    this.staticNoise.setAlpha(0.9);
+  }
+
+  private triggerDistortionEffect() {
+    if (!this.distortionPipeline) return;
+
+    this.ensureStaticNoiseLayer();
+    this.glitchTween?.stop();
+    this.staticNoiseTimer?.remove(false);
+
+    this.distortionPipeline.intensity = 1;
+    this.cameras.main.shake(750, 0.012, true);
+
+    this.staticNoise?.setVisible(true);
+    this.redrawStaticNoise();
+    this.staticNoiseTimer = this.time.addEvent({
+      delay: 45,
+      repeat: Math.ceil(750 / 45),
+      callback: () => this.redrawStaticNoise(),
+    });
+
+    this.glitchTween = this.tweens.add({
+      targets: this.distortionPipeline,
+      intensity: 0,
+      duration: 750,
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        if (!this.distortionPipeline) return;
+        this.distortionPipeline.intensity = 0;
+        this.staticNoise?.setVisible(false);
+        this.staticNoiseTimer?.remove(false);
+        this.staticNoiseTimer = undefined;
+      },
     });
   }
 
   update(_time: number, delta: number) {
+    this.distortionPipeline?.step(delta);
     const previousDifficulty = this.state.difficulty.value;
     const previousProgress = this.cloneCircleProgress(
       this.state.circleProgress
@@ -324,8 +393,8 @@ export class InvokerScene extends Phaser.Scene {
 
     this.state = { ...updatedState, events: frameEvents };
 
-    if (this.state.events.blueGlitch) {
-      this.triggerGlitch();
+    if (this.state.events.overCollection || this.state.events.blueGlitch) {
+      this.triggerDistortionEffect();
     }
     if (previousDifficulty !== this.state.difficulty.value) {
       this.events.emit("updateDifficulty", this.state.difficulty.value);
