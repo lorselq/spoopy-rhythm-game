@@ -1,9 +1,11 @@
-import { type PieceColor, type Quadrant, type TrackId } from "./InvokerTypes";
+import { type PieceColor, type TrackId } from "./InvokerTypes";
 
 export interface DifficultyConfig {
   min: number;
   max: number;
+  midpoint: number;
   driftPerSecond: number;
+  pieceFillDelta: number;
   completionDelta: number;
   overCollectionBase: number;
   overCollectionScale: number;
@@ -25,7 +27,6 @@ export interface InvokerConfig {
   difficulty: DifficultyConfig;
   spawn: SpawnConfig;
   availableColors: PieceColor[];
-  availableQuadrants: Quadrant[];
 }
 
 export const defaultInvokerConfig: InvokerConfig = {
@@ -37,10 +38,12 @@ export const defaultInvokerConfig: InvokerConfig = {
   difficulty: {
     min: 0,
     max: 1,
-    driftPerSecond: 0.015,
-    completionDelta: 0.05,
-    overCollectionBase: 0.03,
-    overCollectionScale: 0.12,
+    midpoint: 0.5,
+    driftPerSecond: 0.02,
+    pieceFillDelta: 0.006,
+    completionDelta: 0.03,
+    overCollectionBase: 0.08,
+    overCollectionScale: 0.06,
   },
   spawn: {
     baseRate: 1.2,
@@ -49,12 +52,6 @@ export const defaultInvokerConfig: InvokerConfig = {
     maxFallSpeed: 420,
   },
   availableColors: ["red", "green", "yellow", "blue"],
-  availableQuadrants: [
-    "upperLeft",
-    "upperRight",
-    "lowerLeft",
-    "lowerRight",
-  ],
 };
 
 export const clampDifficulty = (value: number, config: DifficultyConfig) =>

@@ -13,13 +13,12 @@ const testConfig = {
 };
 
 describe("InvokerLogic", () => {
-  it("fills quadrants on hit", () => {
+  it("fills colors on hit", () => {
     let state = createInitialInvokerState();
     state = { ...state, paused: false };
     const piece = {
       id: "p1",
       trackId: 0,
-      quadrant: "upperLeft" as const,
       color: "blue" as const,
       spawnTime: 0,
       currentY: testConfig.collectionLineY,
@@ -27,7 +26,7 @@ describe("InvokerLogic", () => {
     };
     state = { ...state, pieces: [piece] };
     const updated = handleInvokerInput(state, "KeyA", testConfig);
-    expect(updated.circleProgress[0].quadrants.upperLeft).toBe(true);
+    expect(updated.circleProgress[0].colors.blue).toBe(true);
     expect(updated.pieces.length).toBe(0);
   });
 
@@ -36,17 +35,11 @@ describe("InvokerLogic", () => {
     state = { ...state, paused: false };
     const baseDifficulty = state.difficulty.value;
     const pieces = (
-      [
-        { quadrant: "upperLeft", color: "blue" },
-        { quadrant: "upperRight", color: "red" },
-        { quadrant: "lowerLeft", color: "green" },
-        { quadrant: "lowerRight", color: "yellow" },
-      ] as const
-    ).map((piece, idx) => ({
+      ["blue", "red", "green", "yellow"] as const
+    ).map((color, idx) => ({
       id: `p${idx}`,
       trackId: 0 as const,
-      quadrant: piece.quadrant,
-      color: piece.color as PieceColor,
+      color: color as PieceColor,
       spawnTime: 0,
       currentY: testConfig.collectionLineY,
       speed: 0,
@@ -65,18 +58,17 @@ describe("InvokerLogic", () => {
     state = { ...state, paused: false };
     const filledCircles = state.circleProgress.map((circle) => ({
       ...circle,
-      quadrants: {
-        upperLeft: true,
-        upperRight: true,
-        lowerLeft: true,
-        lowerRight: true,
+      colors: {
+        blue: true,
+        red: true,
+        green: true,
+        yellow: true,
       },
     }));
     state = { ...state, circleProgress: filledCircles };
     const piece = {
       id: "p1",
       trackId: 0,
-      quadrant: "upperLeft" as const,
       color: "blue" as const,
       spawnTime: 0,
       currentY: testConfig.collectionLineY,
@@ -92,6 +84,6 @@ describe("InvokerLogic", () => {
     let state = createInitialInvokerState();
     state = { ...state, paused: false, difficulty: { ...state.difficulty, value: 0.6 } };
     const updated = updateInvokerState(state, 1000, undefined, testConfig);
-    expect(updated.difficulty.value).toBeLessThan(0.6);
+    expect(updated.difficulty.value).toBeCloseTo(0.58, 2);
   });
 });

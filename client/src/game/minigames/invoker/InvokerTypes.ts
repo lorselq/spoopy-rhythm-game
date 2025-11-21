@@ -1,8 +1,8 @@
 export type TrackId = number;
 
-export type Quadrant = "upperLeft" | "upperRight" | "lowerLeft" | "lowerRight";
-
 export type PieceColor = "red" | "green" | "yellow" | "blue";
+
+export type Quadrant = "upperLeft" | "upperRight" | "lowerLeft" | "lowerRight";
 
 /**
  * Difficulty is normalized between 0.0 (easiest) and 1.0 (hardest).
@@ -12,7 +12,6 @@ export type Difficulty = number;
 export interface InvokerPiece {
   id: string;
   trackId: TrackId;
-  quadrant: Quadrant;
   color: PieceColor;
   spawnTime: number;
   currentY: number;
@@ -21,7 +20,7 @@ export interface InvokerPiece {
 
 export interface CircleProgress {
   id: number;
-  quadrants: Record<Quadrant, boolean>;
+  colors: Record<PieceColor, boolean>;
 }
 
 export interface DifficultyState {
@@ -32,8 +31,8 @@ export interface DifficultyState {
 
 export interface InvokerEvents {
   completedCircleIds: number[];
-  captured?: { circleId: number; quadrant: Quadrant; color: PieceColor };
-  blueGlitch: boolean;
+  captured?: { circleId: number; color: PieceColor };
+  glitchColor?: PieceColor;
   overCollection: boolean;
 }
 
