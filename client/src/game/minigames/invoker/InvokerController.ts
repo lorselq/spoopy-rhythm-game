@@ -1,6 +1,6 @@
 import Phaser from "phaser";
-import { InvokerScene, InvokerSceneCallbacks } from "./InvokerScene";
-import { InvokerConfig, defaultInvokerConfig } from "./InvokerConfig";
+import { InvokerScene, type InvokerSceneCallbacks } from "./InvokerScene";
+import { type InvokerConfig, defaultInvokerConfig } from "./InvokerConfig";
 
 export class InvokerController {
   private game?: Phaser.Game;

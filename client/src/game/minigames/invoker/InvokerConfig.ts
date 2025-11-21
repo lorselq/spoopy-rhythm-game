@@ -1,4 +1,4 @@
-import { PieceColor, Quadrant, TrackId } from "./InvokerTypes";
+import { type PieceColor, type Quadrant, type TrackId } from "./InvokerTypes";
 
 export interface DifficultyConfig {
   min: number;

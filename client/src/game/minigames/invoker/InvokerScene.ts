@@ -1,11 +1,11 @@
 import Phaser from "phaser";
 import {
-  InvokerPiece,
-  InvokerState,
-  PieceColor,
-  Quadrant,
+  type InvokerPiece,
+  type InvokerState,
+  type PieceColor,
+  type Quadrant,
 } from "./InvokerTypes";
-import { InvokerConfig, defaultInvokerConfig } from "./InvokerConfig";
+import { type InvokerConfig, defaultInvokerConfig } from "./InvokerConfig";
 import {
   createInitialInvokerState,
   handleInvokerInput,

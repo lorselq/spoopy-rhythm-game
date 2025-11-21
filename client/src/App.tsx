@@ -2,6 +2,7 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import { Invoker } from './game/minigames/invoker/Invoker'
 import { initStrudel } from "@strudel/web";
 import { ensureStrudelInitialized } from "./game/audio/StrudelEngine";
 import * as Tone from "tone";
@@ -19,7 +20,6 @@ function App() {
     await ensureStrudelInitialized();
     // Simple Strudel pattern from the docs:
     // note('<c a f e>(3,8)').jux(rev).play()
-    // @ts-ignore – provided globally by Strudel after init
     note('<c a f e>(3,8)').jux(rev).play();
   } catch (e) {
     console.error("Strudel play error", e);
@@ -29,7 +29,6 @@ function App() {
 const handleStrudelStop = async () => {
   try {
     await ensureStrudelInitialized();
-    // @ts-ignore – global from Strudel
     hush();
   } catch (e) {
     console.error("Strudel stop error", e);
@@ -75,6 +74,9 @@ const handleStrudelStop = async () => {
     >
       Stop Strudel
     </button>
+    <div>
+      <Invoker />   
+    </div>
   </div>
 </div>
     </>
