@@ -64,7 +64,9 @@ export class InvokerScene extends Phaser.Scene {
       this.distortionPipeline = pipelines.get(
         "distortion"
       ) as DistortionPipeline;
-      this.distortionPipeline.intensity = 0;
+      if (this.distortionPipeline) {
+        this.distortionPipeline.intensity = 0;
+      }
       this.cameras.main.setPostPipeline("distortion");
     }
 
@@ -341,7 +343,9 @@ export class InvokerScene extends Phaser.Scene {
     this.glitchTween?.stop();
     this.staticNoiseTimer?.remove(false);
 
-    this.distortionPipeline.intensity = 1;
+    if (this.distortionPipeline) {
+      this.distortionPipeline.intensity = 1;
+    }
     this.cameras.main.shake(750, 0.012, true);
 
     this.staticNoise?.setVisible(true);
@@ -368,7 +372,9 @@ export class InvokerScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    this.distortionPipeline?.step(delta);
+    if (this.distortionPipeline) {
+      this.distortionPipeline.step(delta);
+    }
     const previousDifficulty = this.state.difficulty.value;
     const previousProgress = this.cloneCircleProgress(
       this.state.circleProgress
