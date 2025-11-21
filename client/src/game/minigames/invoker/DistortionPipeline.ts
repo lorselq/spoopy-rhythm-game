@@ -3,6 +3,7 @@ import Phaser from "phaser";
 export class DistortionPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPipeline {
   intensity = 0;
   private elapsed = 0;
+  private tint: [number, number, number] = [1, 1, 1];
 
   constructor(game: Phaser.Game) {
     super({
@@ -14,6 +15,7 @@ export class DistortionPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPi
         varying vec2 outTexCoord;
         uniform float time;
         uniform float intensity;
+        uniform vec3 tint;
 
         // Simple hash-based random
         float rand(vec2 co) {
@@ -43,15 +45,23 @@ export class DistortionPipeline extends Phaser.Renderer.WebGL.Pipelines.PostFXPi
           float flicker = 0.85 + rand(vec2(time * 5.0, uv.y)) * 0.3 * intensity;
           color.rgb *= flicker;
 
+          // Color pull toward the triggered tint
+          color.rgb = mix(color.rgb, tint, 0.55 * intensity);
+
           gl_FragColor = color;
         }
       `,
     });
   }
 
+  setTint(tint: [number, number, number]) {
+    this.tint = tint;
+  }
+
   step(delta: number) {
     this.elapsed += delta / 1000;
     this.set1f("time", this.elapsed);
     this.set1f("intensity", this.intensity);
+    this.set3f("tint", this.tint[0], this.tint[1], this.tint[2]);
   }
 }

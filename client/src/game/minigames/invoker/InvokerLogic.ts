@@ -4,7 +4,6 @@ import {
   type InvokerPiece,
   type InvokerState,
   type PieceColor,
-  type Quadrant,
   type TrackId,
 } from "./InvokerTypes";
 import {
@@ -14,19 +13,12 @@ import {
   trackIdFromKey,
 } from "./InvokerConfig";
 
-const createQuadrantRecord = (): Record<Quadrant, boolean> => ({
-  upperLeft: false,
-  upperRight: false,
-  lowerLeft: false,
-  lowerRight: false,
+const createColorRecord = (): Record<PieceColor, boolean> => ({
+  red: false,
+  green: false,
+  yellow: false,
+  blue: false,
 });
-
-const quadrantColorMap: Record<Quadrant, PieceColor> = {
-  upperLeft: "blue",
-  upperRight: "red",
-  lowerLeft: "green",
-  lowerRight: "yellow",
-};
 
 const nextCircleId = (() => {
   let counter = 0;
@@ -35,7 +27,7 @@ const nextCircleId = (() => {
 
 const createCircleProgress = (): CircleProgress => ({
   id: nextCircleId(),
-  quadrants: createQuadrantRecord(),
+  colors: createColorRecord(),
 });
 
 const difficultyCurve = (value: Difficulty) => Math.pow(value, 1.6);
@@ -51,7 +43,7 @@ const withResetEvents = (state: InvokerState): InvokerState => ({
   events: {
     completedCircleIds: [],
     captured: undefined,
-    blueGlitch: false,
+    glitchColor: undefined,
     overCollection: false,
   },
 });
@@ -62,14 +54,14 @@ export const createInitialInvokerState = (): InvokerState => {
   return {
     time: 0,
     pieces: [],
-    difficulty: { value: 0.35, spawnAccumulator: 0 },
+    difficulty: { value: defaultInvokerConfig.difficulty.midpoint, spawnAccumulator: 0 },
     circleProgress,
     score: 0,
     paused: true,
     events: {
       completedCircleIds: [],
       captured: undefined,
-      blueGlitch: false,
+      glitchColor: undefined,
       overCollection: false,
     },
   };
@@ -96,18 +88,31 @@ const applyDifficultyDrift = (
   difficulty: Difficulty,
   dtSeconds: number,
   config: InvokerConfig
-) =>
-  clampDifficultyState(
-    difficulty - config.difficulty.driftPerSecond * dtSeconds,
-    config
-  );
+) => {
+  const midpoint = config.difficulty.midpoint;
+  const direction = midpoint - difficulty;
+  const drift = Math.sign(direction) *
+    Math.min(Math.abs(direction), config.difficulty.driftPerSecond * dtSeconds);
+  return clampDifficultyState(difficulty + drift, config);
+};
 
-const applyDifficultyIncrease = (
+const applyPieceDifficultyIncrease = (
   difficulty: Difficulty,
   config: InvokerConfig
 ) =>
   clampDifficultyState(
-    difficulty + config.difficulty.completionDelta * (1 - difficulty * 0.25),
+    difficulty +
+      config.difficulty.pieceFillDelta * (1 - difficulty * 0.35),
+    config
+  );
+
+const applyCompletionDifficultyIncrease = (
+  difficulty: Difficulty,
+  config: InvokerConfig
+) =>
+  clampDifficultyState(
+    difficulty +
+      config.difficulty.completionDelta * (1 - difficulty * 0.25),
     config
   );
 
@@ -133,17 +138,15 @@ const spawnPiece = (
   while (accumulator >= 1) {
     accumulator -= 1;
     const trackId = Math.floor(Math.random() * config.tracks) as TrackId;
-    const quadrant =
-      config.availableQuadrants[
-        Math.floor(Math.random() * config.availableQuadrants.length)
+    const color =
+      config.availableColors[
+        Math.floor(Math.random() * config.availableColors.length)
       ];
-    const color = quadrantColorMap[quadrant];
 
     const speed = fallSpeedForDifficulty(state.difficulty.value, config);
     pieces.push({
       id: nextPieceId(),
       trackId,
-      quadrant,
       color,
       spawnTime: state.time,
       currentY: 0,
@@ -172,13 +175,13 @@ const updatePieces = (
   return { ...state, pieces };
 };
 
-const markQuadrant = (progress: CircleProgress, quadrant: Quadrant) => ({
+const markColor = (progress: CircleProgress, color: PieceColor) => ({
   ...progress,
-  quadrants: { ...progress.quadrants, [quadrant]: true },
+  colors: { ...progress.colors, [color]: true },
 });
 
 const isCircleComplete = (progress: CircleProgress) =>
-  Object.values(progress.quadrants).every(Boolean);
+  Object.values(progress.colors).every(Boolean);
 
 const collectPiece = (
   state: InvokerState,
@@ -192,35 +195,37 @@ const collectPiece = (
   const alreadyTooManyOfColor = colorCounts[piece.color] >= maxPerColor;
 
   const targetIndex = state.circleProgress.findIndex(
-    (circle) => !circle.quadrants[piece.quadrant]
+    (circle) => !circle.colors[piece.color]
   );
 
-  // Over-collection: no open quadrants remain for this piece.
+  // Over-collection: no open slots remain for this color.
   if (targetIndex === -1 || alreadyTooManyOfColor) {
     const difficulty = applyDifficultyDrop(state.difficulty.value, config);
-    const blueGlitch = state.events.blueGlitch || piece.color === "blue";
     return {
       ...state,
       difficulty: { ...state.difficulty, value: difficulty },
-      events: { ...state.events, overCollection: true, blueGlitch },
+      events: {
+        ...state.events,
+        overCollection: true,
+        glitchColor: piece.color,
+      },
     };
   }
 
-  const updatedCircle = markQuadrant(
-    state.circleProgress[targetIndex],
-    piece.quadrant
-  );
+  const updatedCircle = markColor(state.circleProgress[targetIndex], piece.color);
   const circleProgress = [...state.circleProgress];
   circleProgress[targetIndex] = updatedCircle;
 
   let difficultyValue = state.difficulty.value;
   let score = state.score;
   const completedCircleIds = [...state.events.completedCircleIds];
-  const blueGlitch = state.events.blueGlitch;
+  const glitchColor = state.events.glitchColor;
+
+  difficultyValue = applyPieceDifficultyIncrease(difficultyValue, config);
 
   if (isCircleComplete(updatedCircle)) {
     score += 10;
-    difficultyValue = applyDifficultyIncrease(difficultyValue, config);
+    difficultyValue = applyCompletionDifficultyIncrease(difficultyValue, config);
     completedCircleIds.push(updatedCircle.id);
     circleProgress.splice(targetIndex, 1);
     circleProgress.push(createCircleProgress());
@@ -236,10 +241,9 @@ const collectPiece = (
       completedCircleIds,
       captured: {
         circleId: updatedCircle.id,
-        quadrant: piece.quadrant,
         color: piece.color,
       },
-      blueGlitch,
+      glitchColor,
     },
   };
 };
@@ -283,11 +287,11 @@ const getColorCounts = (circleProgress: CircleProgress[]): Record<PieceColor, nu
   };
 
   for (const circle of circleProgress) {
-    for (const [quadrant, filled] of Object.entries(circle.quadrants) as [Quadrant, boolean][]) {
-      if (!filled) continue;
-      const color = quadrantColorMap[quadrant];
-      counts[color]++;
-    }
+    (Object.entries(circle.colors) as [PieceColor, boolean][]).forEach(
+      ([color, filled]) => {
+        if (filled) counts[color]++;
+      }
+    );
   }
 
   return counts;

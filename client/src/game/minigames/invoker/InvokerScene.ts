@@ -13,6 +13,20 @@ import {
 } from "./InvokerLogic";
 import { DistortionPipeline } from "./DistortionPipeline";
 
+const colorQuadrantMap: Record<PieceColor, Quadrant> = {
+  red: "upperRight",
+  green: "lowerLeft",
+  yellow: "lowerRight",
+  blue: "upperLeft",
+};
+
+const quadrantColorMap: Record<Quadrant, PieceColor> = {
+  upperRight: "red",
+  lowerLeft: "green",
+  lowerRight: "yellow",
+  upperLeft: "blue",
+};
+
 export interface InvokerSceneCallbacks {
   onGameEnd?: () => void;
   onDifficultyChange?: (difficulty: number) => void;
@@ -133,7 +147,9 @@ export class InvokerScene extends Phaser.Scene {
     const x = piece.trackId * this.trackWidth + this.trackWidth / 2;
     g.fillStyle(color, 1);
     const radius = 32;
-    const startAngle = this.quadrantStartAngle(piece.quadrant);
+    const startAngle = this.quadrantStartAngle(
+      this.quadrantForColor(piece.color)
+    );
     g.beginPath();
     g.moveTo(x, piece.currentY);
     g.arc(x, piece.currentY, radius, startAngle, startAngle + Math.PI / 2, false);
@@ -156,18 +172,12 @@ export class InvokerScene extends Phaser.Scene {
     }
   }
 
+  private quadrantForColor(color: PieceColor): Quadrant {
+    return colorQuadrantMap[color];
+  }
+
   private colorForQuadrant(quadrant: Quadrant): PieceColor {
-    switch (quadrant) {
-      case "upperRight":
-        return "red";
-      case "lowerLeft":
-        return "green";
-      case "lowerRight":
-        return "yellow";
-      case "upperLeft":
-      default:
-        return "blue";
-    }
+    return quadrantColorMap[quadrant];
   }
 
   private colorToHex(color: PieceColor) {
@@ -184,22 +194,27 @@ export class InvokerScene extends Phaser.Scene {
     }
   }
 
+  private colorToVec3(color: PieceColor): [number, number, number] {
+    const tint = Phaser.Display.Color.IntegerToColor(this.colorToHex(color));
+    return [tint.red / 255, tint.green / 255, tint.blue / 255];
+  }
+
   private cloneCircleProgress(
     progress: InvokerState["circleProgress"]
   ): InvokerState["circleProgress"] {
     return progress.map((circle) => ({
       id: circle.id,
-      quadrants: { ...circle.quadrants },
+      colors: { ...circle.colors },
     }));
   }
 
   private flashCapture(
     container: Phaser.GameObjects.Container,
-    quadrant: Quadrant
+    color: PieceColor
   ) {
     const flash = this.add.graphics({ x: container.x, y: container.y });
-    const color = this.colorToHex(this.colorForQuadrant(quadrant));
-    flash.lineStyle(3, color, 0.85);
+    const hexColor = this.colorToHex(color);
+    flash.lineStyle(3, hexColor, 0.85);
     flash.strokeCircle(0, 0, 34);
     flash.setAlpha(0.9);
     this.tweens.add({
@@ -277,38 +292,40 @@ export class InvokerScene extends Phaser.Scene {
       }
 
       const quadrants = this.quadrantSprites.get(circle.id)!;
-      (Object.keys(circle.quadrants) as Quadrant[]).forEach((quadrant) => {
-        let g = quadrants[quadrant];
-        if (!g) {
-          g = this.add.graphics();
-          quadrants[quadrant] = g;
-          container?.add(g);
-        }
-        const filled = circle.quadrants[quadrant];
-        const color = this.colorToHex(this.colorForQuadrant(quadrant));
-        g.clear();
-        g.lineStyle(2, color, 0.35);
-        g.fillStyle(filled ? color : 0x0c101b, filled ? 0.9 : 0.12);
-        const start = this.quadrantStartAngle(quadrant);
-        g.beginPath();
-        g.moveTo(0, 0);
-        g.arc(0, 0, 28, start, start + Math.PI / 2, false);
-        g.closePath();
-        if (filled) {
-          g.fillPath();
-        } else {
-          g.strokePath();
-        }
+      (Object.entries(circle.colors) as [PieceColor, boolean][]).forEach(
+        ([color, filled]) => {
+          const quadrant = this.quadrantForColor(color);
+          let g = quadrants[quadrant];
+          if (!g) {
+            g = this.add.graphics();
+            quadrants[quadrant] = g;
+            container?.add(g);
+          }
+          const hexColor = this.colorToHex(color);
+          g.clear();
+          g.lineStyle(2, hexColor, 0.35);
+          g.fillStyle(hexColor, filled ? 0.9 : 0.12);
+          const start = this.quadrantStartAngle(quadrant);
+          g.beginPath();
+          g.moveTo(0, 0);
+          g.arc(0, 0, 28, start, start + Math.PI / 2, false);
+          g.closePath();
+          if (filled) {
+            g.fillPath();
+          } else {
+            g.strokePath();
+          }
 
-        const prevCircle = previousProgress.find((c) => c.id === circle.id);
-        const wasFilled = prevCircle?.quadrants[quadrant] ?? false;
-        const isCapturedQuadrant =
-          capturedEvent?.circleId === circle.id &&
-          capturedEvent.quadrant === quadrant;
-        if (container && (filled && !wasFilled || isCapturedQuadrant)) {
-          this.flashCapture(container, quadrant);
+          const prevCircle = previousProgress.find((c) => c.id === circle.id);
+          const wasFilled = prevCircle?.colors[color] ?? false;
+          const isCapturedColor =
+            capturedEvent?.circleId === circle.id &&
+            capturedEvent.color === color;
+          if (container && ((filled && !wasFilled) || isCapturedColor)) {
+            this.flashCapture(container, color);
+          }
         }
-      });
+      );
     });
   }
 
@@ -336,7 +353,7 @@ export class InvokerScene extends Phaser.Scene {
     this.staticNoise.setAlpha(0.9);
   }
 
-  private triggerDistortionEffect() {
+  private triggerDistortionEffect(color: PieceColor) {
     if (!this.distortionPipeline) return;
 
     this.ensureStaticNoiseLayer();
@@ -345,6 +362,7 @@ export class InvokerScene extends Phaser.Scene {
 
     if (this.distortionPipeline) {
       this.distortionPipeline.intensity = 1;
+      this.distortionPipeline.setTint(this.colorToVec3(color));
     }
     this.cameras.main.shake(750, 0.012, true);
 
@@ -392,15 +410,17 @@ export class InvokerScene extends Phaser.Scene {
         ...updatedState.events.completedCircleIds,
       ],
       captured: updatedState.events.captured ?? carriedEvents.captured,
-      blueGlitch: updatedState.events.blueGlitch || carriedEvents.blueGlitch,
+      glitchColor: updatedState.events.glitchColor ?? carriedEvents.glitchColor,
       overCollection:
         updatedState.events.overCollection || carriedEvents.overCollection,
     };
 
     this.state = { ...updatedState, events: frameEvents };
 
-    if (this.state.events.overCollection || this.state.events.blueGlitch) {
-      this.triggerDistortionEffect();
+    if (this.state.events.overCollection || this.state.events.glitchColor) {
+      this.triggerDistortionEffect(
+        this.state.events.glitchColor ?? "blue"
+      );
     }
     if (previousDifficulty !== this.state.difficulty.value) {
       this.events.emit("updateDifficulty", this.state.difficulty.value);
@@ -418,7 +438,7 @@ export class InvokerScene extends Phaser.Scene {
       events: {
         completedCircleIds: [],
         captured: undefined,
-        blueGlitch: false,
+        glitchColor: undefined,
         overCollection: false,
       },
     };
@@ -436,7 +456,9 @@ export class InvokerScene extends Phaser.Scene {
         const color = this.colorToHex(piece.color);
         const x = piece.trackId * this.trackWidth + this.trackWidth / 2;
         const radius = 32;
-        const startAngle = this.quadrantStartAngle(piece.quadrant);
+        const startAngle = this.quadrantStartAngle(
+          this.quadrantForColor(piece.color)
+        );
         sprite.fillStyle(color, 1);
         sprite.beginPath();
         sprite.moveTo(x, piece.currentY);
